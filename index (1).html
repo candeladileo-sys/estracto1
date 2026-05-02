@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Análisis de Estratos — Modelo Jaques</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0f0e0d; --paper: #f5f2ec; --paper2: #ede9e0;
+  --line: #d6d0c4; --muted: #8c8880;
+  --e1: #2d6a4f; --e2: #1a5f8a; --e3: #7b4f12; --e4: #4a2080;
+  --accent: #c94a1a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; display: flex; flex-direction: column; }
+
+header { border-bottom: 1px solid var(--line); padding: 1.25rem 2rem; display: flex; align-items: center; gap: 1rem; }
+.logo { font-family: 'DM Serif Display', serif; font-size: 1.3rem; letter-spacing: -0.02em; }
+.logo span { color: var(--accent); font-style: italic; }
+.logo-sub { font-size: 0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.06em; text-transform: uppercase; }
+
+main { flex: 1; max-width: 700px; margin: 0 auto; padding: 2.5rem 2rem 5rem; width: 100%; }
+
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* INTRO */
+.intro-card { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 1.5rem; }
+.intro-header { background: var(--ink); color: var(--paper); padding: 1.25rem 1.75rem; display: flex; align-items: center; gap: 1rem; }
+.intro-header-title { font-family: 'DM Serif Display', serif; font-size: 1.1rem; }
+.intro-body { padding: 1.5rem 1.75rem; }
+.intro-body p { font-size: 0.88rem; line-height: 1.75; margin-bottom: 0.75rem; color: var(--ink); }
+.intro-body p:last-child { margin-bottom: 0; }
+
+.tema-card { border: 1px solid var(--line); border-radius: 6px; padding: 1.5rem 1.75rem; margin-bottom: 1.5rem; background: var(--paper2); display: flex; align-items: center; gap: 1.5rem; }
+.tema-label { font-size: 0.68rem; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 0.35rem; }
+.tema-value { font-family: 'DM Serif Display', serif; font-size: 1.4rem; letter-spacing: -0.01em; }
+.tema-icon { font-size: 2rem; flex-shrink: 0; }
+
+.btn-start { width: 100%; background: var(--ink); color: var(--paper); border: none; padding: 1rem 2rem; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500; border-radius: 6px; cursor: pointer; transition: opacity 0.15s; }
+.btn-start:hover { opacity: 0.85; }
+
+/* SESSION */
+.session-wrap { display: flex; flex-direction: column; align-items: center; gap: 1.75rem; padding: 1rem 0; }
+
+.fase-row { display: flex; align-items: center; width: 100%; }
+.fase-item { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
+.fase-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--muted); transition: all 0.3s; }
+.fase-dot.done { background: var(--ink); border-color: var(--ink); }
+.fase-dot.active { background: var(--accent); border-color: var(--accent); animation: dpulse 1s infinite; }
+@keyframes dpulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.5);} }
+.fase-txt { font-size: 0.62rem; font-family: 'DM Mono', monospace; color: var(--muted); text-align: center; }
+.fase-txt.done { color: var(--ink); }
+.fase-txt.active { color: var(--accent); }
+.fase-sep { flex: 1; height: 1px; background: var(--line); max-width: 36px; transition: background 0.3s; }
+.fase-sep.done { background: var(--ink); }
+
+.tema-pill { font-size: 0.75rem; font-family: 'DM Mono', monospace; background: var(--paper2); border: 1px solid var(--line); padding: 5px 14px; border-radius: 20px; color: var(--muted); }
+.tema-pill strong { color: var(--ink); font-weight: 500; }
+
+.wave-wrap { width: 180px; height: 50px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.wave-bar { width: 4px; border-radius: 2px; background: var(--line); height: 6px; transition: height 0.1s ease, background 0.3s; }
+.wave-wrap.listening .wave-bar { background: var(--ink); }
+.wave-wrap.speaking .wave-bar { background: var(--accent); }
+
+.mic-btn { width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--ink); background: transparent; font-size: 1.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.mic-btn.listening { background: var(--ink); animation: mpulse 1.5s infinite; }
+.mic-btn.speaking { background: var(--accent); border-color: var(--accent); }
+@keyframes mpulse { 0%,100%{box-shadow:0 0 0 0 rgba(15,14,13,0.2);} 50%{box-shadow:0 0 0 16px rgba(15,14,13,0);} }
+
+.estado { font-size: 0.8rem; color: var(--muted); font-family: 'DM Mono', monospace; text-align: center; letter-spacing: 0.04em; min-height: 20px; transition: color 0.3s; }
+.estado.hablando { color: var(--accent); }
+.estado.escuchando { color: var(--ink); }
+.estado.esperando { color: var(--e2); }
+
+.timer-wrap { width: 100%; display: none; }
+.timer-wrap.active { display: block; }
+.timer-track { height: 2px; background: var(--line); border-radius: 1px; margin-bottom: 5px; }
+.timer-fill { height: 100%; background: var(--ink); border-radius: 1px; transition: width 1s linear; }
+.timer-fill.warn { background: var(--accent); }
+.timer-row { display: flex; justify-content: space-between; font-size: 0.68rem; font-family: 'DM Mono', monospace; color: var(--muted); }
+
+/* RESULTADO */
+.result-top { display: grid; grid-template-columns: auto 1fr; gap: 1.5rem; align-items: center; border: 1px solid var(--line); border-radius: 6px 6px 0 0; padding: 1.75rem 2rem; background: var(--paper2); }
+.est-num { font-family: 'DM Serif Display', serif; font-size: 4.5rem; line-height: 1; letter-spacing: -0.04em; }
+.est-name { font-family: 'DM Serif Display', serif; font-size: 1.2rem; margin-bottom: 0.2rem; }
+.est-sub { font-size: 0.72rem; font-family: 'DM Mono', monospace; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.est-sum { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+.conf-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.7rem; }
+.conf-lbl { font-size: 0.67rem; font-family: 'DM Mono', monospace; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.conf-track { flex: 1; height: 2px; background: var(--line); border-radius: 1px; }
+.conf-fill { height: 100%; border-radius: 1px; }
+.conf-pct { font-family: 'DM Mono', monospace; font-size: 0.74rem; color: var(--muted); }
+
+.result-body { border: 1px solid var(--line); border-top: none; border-radius: 0 0 6px 6px; }
+.r-block { padding: 1.25rem 1.75rem; border-bottom: 1px solid var(--line); }
+.r-block:last-child { border-bottom: none; }
+.r-title { font-size: 0.66rem; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.85rem; }
+
+.score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.score-label { font-size: 12px; min-width: 100px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.score-label.winner { color: var(--ink); font-weight: 500; }
+.score-bar-bg { flex: 1; height: 4px; background: var(--line); border-radius: 2px; }
+.score-bar-fill { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+.score-val { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; min-width: 32px; text-align: right; }
+
+.signals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem; }
+.signal-item { background: var(--paper2); border-radius: 4px; padding: 0.65rem 0.85rem; font-size: 0.78rem; line-height: 1.4; }
+.signal-item.positive { border-left: 2px solid; }
+.signal-item.negative { border-left: 2px solid var(--line); color: var(--muted); font-style: italic; }
+.signal-label { font-size: 0.62rem; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+
+.ev-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.ev-item { display: flex; gap: 0.6rem; font-size: 0.82rem; line-height: 1.5; }
+.ev-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 0.5rem; }
+.alt-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.alt-item { display: flex; gap: 0.6rem; font-size: 0.79rem; color: var(--muted); line-height: 1.5; }
+.alt-dot { width: 5px; height: 5px; border-radius: 50%; border: 1px solid var(--muted); flex-shrink: 0; margin-top: 0.5rem; }
+
+.result-actions { margin-top: 1.25rem; }
+.btn-sec { background: transparent; color: var(--ink); border: 1px solid var(--line); padding: 0.75rem 1.5rem; font-family: 'DM Sans', sans-serif; font-size: 0.84rem; border-radius: 4px; cursor: pointer; }
+.btn-sec:hover { border-color: var(--ink); }
+
+.loading-wrap { display: none; padding: 2rem 0; text-align: center; }
+.loading-wrap.active { display: block; }
+.loading-lbl { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+.loading-bar { height: 2px; background: var(--line); border-radius: 1px; max-width: 180px; margin: 0 auto; overflow: hidden; }
+.loading-fill { height: 100%; background: var(--ink); animation: lbar 1.4s ease-in-out infinite; }
+@keyframes lbar { 0%{width:0;margin-left:0;} 50%{width:60%;margin-left:20%;} 100%{width:0;margin-left:100%;} }
+
+.e1c{color:var(--e1);} .e2c{color:var(--e2);} .e3c{color:var(--e3);} .e4c{color:var(--e4);}
+.e1b{background:var(--e1);} .e2b{background:var(--e2);} .e3b{background:var(--e3);} .e4b{background:var(--e4);}
+.e1l{border-left:3px solid var(--e1);} .e2l{border-left:3px solid var(--e2);} .e3l{border-left:3px solid var(--e3);} .e4l{border-left:3px solid var(--e4);}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Estrato<span>Análisis</span></div>
+    <div class="logo-sub">Modelo Jaques · Complejidad de rol</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- PANTALLA 1: INSTRUCCIONES -->
+  <div class="screen active" id="scr-intro">
+    <div class="intro-card">
+      <div class="intro-header">
+        <span style="font-size:1.25rem;">📋</span>
+        <div class="intro-header-title">Instrucciones de la sesión</div>
+      </div>
+      <div class="intro-body">
+        <p>Te voy a pedir que hables sobre un tema que te voy a indicar.</p>
+        <p>Sobre ese tema te propongo que hables durante al menos <strong>10 minutos</strong>.</p>
+        <p>Iré tomando nota y grabando, ya que necesito contar con el material textual. ¿Tenés algún inconveniente con esto? La grabación es para uso interno, no se comparte con nadie.</p>
+        <p>La idea es <strong>ver cómo organizás tu discurso</strong>. No es función del sistema realizar un juicio de valor sobre el contenido de lo que expongas.</p>
+        <p>Puedo intervenir para realizarte alguna pregunta, pero la consigna es que hables a lo largo de los 10 minutos sobre el tema.</p>
+      </div>
+    </div>
+    <div class="tema-card">
+      <div class="tema-icon" id="tema-icon">💬</div>
+      <div>
+        <div class="tema-label">El tema asignado es</div>
+        <div class="tema-value" id="tema-display">—</div>
+      </div>
+    </div>
+    <button class="btn-start" onclick="iniciarSesion()">Estoy listo, comenzar sesión</button>
+  </div>
+
+  <!-- PANTALLA 2: SESIÓN -->
+  <div class="screen" id="scr-sesion">
+    <div class="session-wrap">
+      <div class="fase-row">
+        <div class="fase-item"><div class="fase-dot" id="fd0"></div><div class="fase-txt" id="ft0">Discurso</div></div>
+        <div class="fase-sep" id="fs0"></div>
+        <div class="fase-item"><div class="fase-dot" id="fd1"></div><div class="fase-txt" id="ft1">Intervención 1</div></div>
+        <div class="fase-sep" id="fs1"></div>
+        <div class="fase-item"><div class="fase-dot" id="fd2"></div><div class="fase-txt" id="ft2">Intervención 2</div></div>
+        <div class="fase-sep" id="fs2"></div>
+        <div class="fase-item"><div class="fase-dot" id="fd3"></div><div class="fase-txt" id="ft3">Síntesis</div></div>
+        <div class="fase-sep" id="fs3"></div>
+        <div class="fase-item"><div class="fase-dot" id="fd4"></div><div class="fase-txt" id="ft4">Resultado</div></div>
+      </div>
+      <div class="tema-pill">Tema: <strong id="tema-pill-txt">—</strong></div>
+      <div class="wave-wrap" id="wave"></div>
+      <button class="mic-btn" id="mic-btn" onclick="toggleMic()">🎙</button>
+      <div class="estado" id="estado">Presioná para comenzar a hablar</div>
+      <div class="timer-wrap" id="timer-wrap">
+        <div class="timer-track"><div class="timer-fill" id="timer-fill" style="width:0%"></div></div>
+        <div class="timer-row"><span id="timer-elapsed">0:00</span><span>10:00 máx</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-wrap" id="loading">
+    <div class="loading-lbl" id="loading-lbl">Analizando</div>
+    <div class="loading-bar"><div class="loading-fill"></div></div>
+  </div>
+
+  <!-- PANTALLA 3: RESULTADO -->
+  <div class="screen" id="scr-resultado">
+    <div class="result-top" id="r-top"></div>
+    <div class="result-body" id="r-body"></div>
+    <div class="result-actions">
+      <button class="btn-sec" onclick="reiniciar()">Nueva sesión</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════
+// TEMAS
+// ═══════════════════════════════════════════════════
+var TEMAS = [
+  {texto:'Legalización de las drogas', icon:'⚖️'},
+  {texto:'Inseguridad', icon:'🔒'},
+  {texto:'Educación', icon:'📚'},
+  {texto:'Cambio climático', icon:'🌍'},
+  {texto:'Corrupción', icon:'🏛️'},
+  {texto:'Deporte y sociedad', icon:'⚽'},
+  {texto:'Deserción escolar', icon:'🎒'},
+  {texto:'Mi trabajo: problemas, satisfacciones y perspectivas', icon:'💼'}
+];
+
+// ═══════════════════════════════════════════════════
+// CLASIFICADOR ESTRUCTURAL
+// Basado en arquitectura del pensamiento, no palabras clave
+// Calibrado con ejemplos reales de Jaques (Sergio E1, anónimo E2, anónimo E3)
+// ═══════════════════════════════════════════════════
+
+// ── PATRONES E1: Loop emocional, sin causas, soluciones vagas ──
+var PATRONES_E1 = {
+  // Repetición de la misma idea sin avanzar
+  repeticion: [
+    /es malo.{0,20}es malo/i,
+    /hay que.{0,30}hay que/i,
+    /no me parece.{0,30}no me parece/i,
+    /siempre.{0,20}siempre/i,
+    /nunca.{0,20}nunca/i
+  ],
+  // Relato personal/emocional sin construcción argumental
+  emocional: [
+    /me toc[oó].{0,20}de cerca/i,
+    /lo siento/i,
+    /lo tengo metido/i,
+    /yo s[eé] que/i,
+    /se ve en la (tele|radio|tv)/i,
+    /todo el mundo (sabe|lo sabe)/i,
+    /es algo que/i
+  ],
+  // Soluciones vagas "hay que hacer más de lo mismo"
+  solucion_vaga: [
+    /hay que hablar(lo)?( más)?/i,
+    /hay que (concientizar|educar) más/i,
+    /meterlo más/i,
+    /pegarlo más/i,
+    /más (publicidad|campañas|charlas)/i,
+    /todos los días/i
+  ],
+  // Ausencia de "por qué" — describe sin explicar
+  sin_causalidad: [
+    /^(?!.*(porque|ya que|dado que|debido a|por lo tanto|en consecuencia|lo que lleva|esto genera|esto implica)).{200,}/is
+  ]
+};
+
+// ── PATRONES E2: Acumulación diagnóstica, causas múltiples ──
+var PATRONES_E2 = {
+  // Identifica causas y las nombra
+  identifica_causas: [
+    /parte (de|por)/i,
+    /el problema (es|viene|parte|radica)/i,
+    /se debe a/i,
+    /por (falta de|ausencia de|falla en)/i,
+    /la causa/i,
+    /proviene de/i,
+    /tiene (su )?origen/i
+  ],
+  // Acumula variables distintas
+  acumulacion: [
+    /por un lado.{0,60}por (el )?otro/i,
+    /primero.{0,100}(también|además|segundo)/i,
+    /no solo.{0,60}sino (también|que)/i,
+    /a esto se (suma|agrega)/i,
+    /combinado con/i,
+    /quizás.{0,60}quizás/i,
+    /en principio.{0,100}(también|además)/i
+  ],
+  // Llega a diagnóstico propio
+  diagnostico: [
+    /yo creo que/i,
+    /a mi entender/i,
+    /llego a la conclusi[oó]n/i,
+    /todo esto indica/i,
+    /eso hace que/i,
+    /lo que (lo )?hace/i,
+    /desgraciadamente/i,
+    /lamentablemente/i,
+    /lo que explica/i
+  ],
+  // Reconoce obstáculos sistémicos
+  obstaculo_sistemico: [
+    /intereses (creados|políticos|económicos)/i,
+    /no (es|está) fácil/i,
+    /es (difícil|dificultoso|complejo)/i,
+    /hay mucho (dinero|poder)/i,
+    /no se quiere/i,
+    /irresoluble/i,
+    /no (le )?veo solución/i,
+    /el sistema/i
+  ]
+};
+
+// ── PATRONES E3: Cadenas causales, alternativas, múltiples ángulos ──
+var PATRONES_E3 = {
+  // Construye cadenas lógicas Si→Entonces
+  cadena_causal: [
+    /porque.{0,80}(lo que|que|esto) (implica|genera|lleva|produce|significa)/i,
+    /si.{0,60}entonces/i,
+    /en consecuencia/i,
+    /por lo tanto/i,
+    /lo que (implica|genera|lleva a|produce)/i,
+    /esto (deriva|conduce|lleva)/i,
+    /dado que.{0,60}(entonces|por lo tanto)/i
+  ],
+  // Navega contradicciones conscientemente
+  contradiccion: [
+    /por un lado.{0,100}pero (por otro|también)/i,
+    /aunque.{0,60}(sin embargo|pero|no obstante)/i,
+    /hay una contradicci[oó]n/i,
+    /es paradójico/i,
+    /por un lado (nos|se).{0,60}pero/i,
+    /no (podemos|se puede) negar.{0,60}pero/i,
+    /entiendo que.{0,60}pero/i,
+    /reconozco que.{0,60}sin embargo/i
+  ],
+  // Evalúa múltiples posiciones
+  multiperspectiva: [
+    /desde (el punto de vista|la perspectiva)/i,
+    /para algunos.{0,60}para otros/i,
+    /hay quienes.{0,60}mientras que/i,
+    /distintos (enfoques|perspectivas|ángulos)/i,
+    /depende (de|del)/i,
+    /no es blanco (o|ni) negro/i,
+    /es más complejo que/i
+  ],
+  // Argumentación estructurada con fundamento
+  argumento_estructurado: [
+    /creo (esto )?porque/i,
+    /estoy (a favor|en contra) (porque|ya que)/i,
+    /mi posición es.{0,60}porque/i,
+    /lo que me lleva a pensar/i,
+    /fundamentalmente porque/i,
+    /sostengo que/i,
+    /la razón (es|por la que)/i
+  ]
+};
+
+// ── PATRONES E4: Sistemas paralelos, principios transferibles ──
+var PATRONES_E4 = {
+  sistemas_paralelos: [
+    /múltiples (proyectos|iniciativas|frentes)/i,
+    /en paralelo/i,
+    /se (afectan|impactan) (entre sí|mutuamente)/i,
+    /armonizar/i,
+    /interdependencia/i,
+    /portafolio (de|del)/i
+  ],
+  principios_generales: [
+    /principio (general|que aplica)/i,
+    /que (sirve|sirva) (para|de base)/i,
+    /replicable/i,
+    /transferible/i,
+    /en cualquier (caso|contexto|situación)/i,
+    /marco (conceptual|teórico|de referencia)/i
+  ]
+};
+
+// ── FUNCIÓN SCORE ESTRUCTURAL ──
+function scoreEstructural(texto) {
+  var t = texto;
+  var result = {
+    E1: { score: 0, signals: [] },
+    E2: { score: 0, signals: [] },
+    E3: { score: 0, signals: [] },
+    E4: { score: 0, signals: [] }
+  };
+
+  // Contar palabras
+  var words = t.trim().split(/\s+/).length;
+
+  // ── SCORE E1 ──
+  Object.keys(PATRONES_E1).forEach(function(tipo) {
+    PATRONES_E1[tipo].forEach(function(re) {
+      if (re.test(t)) {
+        result.E1.score += tipo === 'repeticion' ? 3 : 2;
+        result.E1.signals.push(tipo);
+      }
+    });
+  });
+
+  // Penalizar E1 si hay patrones de E2 o E3
+  if (result.E2 && result.E2.score > 2) result.E1.score = Math.max(0, result.E1.score - 2);
+
+  // ── SCORE E2 ──
+  Object.keys(PATRONES_E2).forEach(function(tipo) {
+    PATRONES_E2[tipo].forEach(function(re) {
+      if (re.test(t)) {
+        result.E2.score += tipo === 'diagnostico' ? 3 : 2;
+        if (result.E2.signals.indexOf(tipo) === -1) result.E2.signals.push(tipo);
+      }
+    });
+  });
+
+  // ── SCORE E3 ──
+  Object.keys(PATRONES_E3).forEach(function(tipo) {
+    PATRONES_E3[tipo].forEach(function(re) {
+      if (re.test(t)) {
+        result.E3.score += tipo === 'cadena_causal' ? 4 : tipo === 'argumento_estructurado' ? 3 : 2;
+        if (result.E3.signals.indexOf(tipo) === -1) result.E3.signals.push(tipo);
+      }
+    });
+  });
+
+  // ── SCORE E4 ──
+  Object.keys(PATRONES_E4).forEach(function(tipo) {
+    PATRONES_E4[tipo].forEach(function(re) {
+      if (re.test(t)) {
+        result.E4.score += 3;
+        if (result.E4.signals.indexOf(tipo) === -1) result.E4.signals.push(tipo);
+      }
+    });
+  });
+
+  // Ajuste por extensión: discurso más largo tiende a mayor elaboración
+  if (words > 200 && result.E2.score > 0) result.E2.score += 1;
+  if (words > 300 && result.E3.score > 0) result.E3.score += 1;
+
+  // Si E3 tiene señales pero E1 también tiene muchas, equilibrar
+  if (result.E3.score > 3 && result.E1.score > 4) result.E1.score = Math.floor(result.E1.score * 0.6);
+
+  return result;
+}
+
+function clasificar(texto, extras) {
+  var textoTotal = texto + ' ' + (extras || '');
+
+  // Score estructural del texto principal
+  var scores = scoreEstructural(textoTotal);
+
+  // Peso extra a la síntesis
+  var sinText = qaHistory.filter(function(h){ return h.role==='sintesis'; }).map(function(h){ return h.content; }).join(' ');
+  if (sinText.length > 20) {
+    var sinScores = scoreEstructural(sinText);
+    Object.keys(scores).forEach(function(k){
+      scores[k].score += sinScores[k].score * 1.5;
+    });
+  }
+
+  // Determinar ganador
+  var best = 'E1', bestVal = -1;
+  var total = 0;
+  ['E1','E2','E3','E4'].forEach(function(k){
+    total += scores[k].score;
+    if (scores[k].score > bestVal) { bestVal = scores[k].score; best = k; }
+  });
+
+  var num = parseInt(best.replace('E',''));
+
+  // Confianza basada en distancia entre 1° y 2°
+  var vals = ['E1','E2','E3','E4'].map(function(k){ return scores[k].score; }).sort(function(a,b){return b-a;});
+  var gap = vals[0] - vals[1];
+  var confianza = total === 0 ? 45 : Math.min(88, 50 + gap * 4);
+
+  // Subestrato
+  var prevScore = scores['E'+(num-1)] ? scores['E'+(num-1)].score : 0;
+  var nextScore = scores['E'+(num+1)] ? scores['E'+(num+1)].score : 0;
+  var sub = 'medio';
+  if (nextScore > 0 && bestVal - nextScore < 3) sub = 'alto';
+  else if (num > 1 && bestVal - prevScore < 2) sub = 'bajo';
+
+  return {
+    estrato: num,
+    subestrato: sub,
+    confianza: Math.round(confianza),
+    scores: scores,
+    signals: scores[best].signals,
+    total: total
+  };
+}
+
+// ═══════════════════════════════════════════════════
+// CONTENIDO DE RESULTADOS
+// ═══════════════════════════════════════════════════
+var NOMBRES = { 1:'Tareas de Acción Directa', 2:'Acumulación Diagnóstica', 3:'Cursos Alternativos en Serie', 4:'Procesamiento en Paralelo' };
+var COLORES  = { 1:'var(--e1)', 2:'var(--e2)', 3:'var(--e3)', 4:'var(--e4)' };
+var SUMMARIES = {
+  1:'El discurso es concreto y lineal, centrado en experiencias personales o acciones directas. Las ideas se repiten sin construcción argumental y las soluciones propuestas son vagas o del tipo "más de lo mismo".',
+  2:'El discurso identifica causas, acumula variables y llega a un diagnóstico propio. Reconoce obstáculos sistémicos y puede anticipar problemas, aunque cada uno se trata por separado.',
+  3:'El discurso construye cadenas causales estructuradas. Navega contradicciones conscientemente, evalúa múltiples perspectivas y argumenta con fundamento lógico encadenado.',
+  4:'El discurso gestiona sistemas paralelos interdependientes y genera principios transferibles aplicables a futuros contextos similares.'
+};
+
+var SEÑALES_LABELS = {
+  repeticion:            'Repetición de ideas sin avance',
+  emocional:             'Relato personal/emocional',
+  solucion_vaga:         'Soluciones vagas o genéricas',
+  sin_causalidad:        'Ausencia de relaciones causales',
+  identifica_causas:     'Identifica causas del problema',
+  acumulacion:           'Acumula variables distintas',
+  diagnostico:           'Llega a diagnóstico propio',
+  obstaculo_sistemico:   'Reconoce obstáculos sistémicos',
+  cadena_causal:         'Construye cadenas Si→Entonces',
+  contradiccion:         'Navega contradicciones conscientemente',
+  multiperspectiva:      'Evalúa múltiples perspectivas',
+  argumento_estructurado:'Argumenta con fundamento estructurado',
+  sistemas_paralelos:    'Gestiona sistemas paralelos',
+  principios_generales:  'Genera principios transferibles'
+};
+
+var ALERTAS = {
+  1:['Verificar si tiene personas a cargo — indicador clave de E2','Discurso corto o emocional puede subestimar la complejidad real','Complementar con una segunda instancia de observación'],
+  2:['Distinguir si el diagnóstico es propio o instrucciones recibidas','Validar si anticipa o solo reconoce problemas en retrospectiva','Chequear si diseña sistemas o ejecuta dentro de sistemas definidos'],
+  3:['Verificar si los planes alternativos los genera él/ella o los recibe','Confirmar que el horizonte 1-2 años es natural, no solo declarativo','Evaluar autonomía táctica real sin supervisión superior'],
+  4:['Confirmar armonización activa de proyectos interdependientes','Verificar creación de principios vs. aplicación de buenas prácticas','Evaluar si el horizonte estratégico corresponde al rol actual']
+};
+
+// ═══════════════════════════════════════════════════
+// MENSAJES DEL AGENTE
+// ═══════════════════════════════════════════════════
+var TEMPLATES_INT1 = [
+  'Justo sobre [ULTIMO], ¿qué más me podés contar?',
+  'Cuando mencionaste [ULTIMO], ¿a qué te referías? Contame más.',
+  'Me quedé pensando en [ULTIMO]. ¿Podés profundizar?'
+];
+var TEMPLATES_INT2 = [
+  'Antes dijiste [ULTIMO]. ¿Cómo llegaste a esa conclusión? ¿Tenías alternativas pensadas?',
+  'Sobre [ULTIMO], ¿eso lo anticipaste o surgió en el momento?',
+  'En relación a [ULTIMO], ¿cómo lo planificaste?'
+];
+var MSG_SINTESIS    = 'Para ir cerrando, hacé una breve síntesis de lo que nos contaste. Los puntos que considerás más importantes y cómo llegaste a esas conclusiones.';
+var MSG_INICIO      = 'Muy bien. Podés comenzar cuando quieras. Tenés unos diez minutos para desarrollar el tema.';
+var MSG_GRACIAS     = 'Gracias. Podés continuar.';
+var MSG_PROCESANDO  = 'Muchas gracias. Estamos procesando el análisis.';
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+var temaActual=null, voiceText='', qaHistory=[];
+var recognition=null, isListening=false, intervening=false;
+var timerInterval=null, timerSeconds=0, waveInterval=null;
+var int1Done=false, int2Done=false, sinDone=false;
+var MAX_SECS=10*60, INT1_SECS=3.5*60, INT2_SECS=6.5*60, SIN_SECS=8.5*60;
+
+// ═══════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════
+function gid(id){ return document.getElementById(id); }
+
+function showScreen(id){
+  ['scr-intro','scr-sesion','scr-resultado'].forEach(function(s){ gid(s).classList.remove('active'); });
+  gid(id).classList.add('active');
+}
+
+function setFase(n){
+  for(var i=0;i<5;i++){
+    var dot=gid('fd'+i),txt=gid('ft'+i),sep=gid('fs'+i);
+    if(i<n){dot.className='fase-dot done';txt.className='fase-txt done';if(sep)sep.className='fase-sep done';}
+    else if(i===n){dot.className='fase-dot active';txt.className='fase-txt active';if(sep)sep.className='fase-sep';}
+    else{dot.className='fase-dot';txt.className='fase-txt';if(sep)sep.className='fase-sep';}
+  }
+}
+
+function buildWave(){
+  var w=gid('wave'); w.innerHTML='';
+  for(var i=0;i<12;i++){var b=document.createElement('div');b.className='wave-bar';b.style.height='6px';w.appendChild(b);}
+}
+
+function animateWave(type){
+  var w=gid('wave'); w.className='wave-wrap '+type;
+  clearInterval(waveInterval);
+  if(type==='idle'){w.querySelectorAll('.wave-bar').forEach(function(b){b.style.height='6px';});return;}
+  waveInterval=setInterval(function(){
+    w.querySelectorAll('.wave-bar').forEach(function(b){
+      b.style.height=(type==='listening'?8+Math.random()*40:6+Math.random()*18)+'px';
+    });
+  },120);
+}
+
+function setEstado(txt,tipo){
+  var el=gid('estado'); el.textContent=txt; el.className='estado '+(tipo||'');
+}
+
+function hablar(texto,onEnd){
+  window.speechSynthesis.cancel();
+  animateWave('speaking');
+  setEstado('El agente está hablando...','hablando');
+  gid('mic-btn').className='mic-btn speaking';
+  gid('mic-btn').textContent='🔊';
+  var utter=new SpeechSynthesisUtterance(texto);
+  utter.lang='es-ES'; utter.rate=0.88; utter.pitch=1.0; utter.volume=1.0;
+  var voices=window.speechSynthesis.getVoices();
+  var v=voices.find(function(x){return x.lang.startsWith('es');});
+  if(v) utter.voice=v;
+  utter.onend=function(){animateWave('idle');if(onEnd)onEnd();};
+  utter.onerror=function(){animateWave('idle');if(onEnd)onEnd();};
+  window.speechSynthesis.speak(utter);
+}
+
+function iniciarTimer(){
+  gid('timer-wrap').classList.add('active');
+  timerInterval=setInterval(function(){
+    timerSeconds++;
+    var pct=Math.min((timerSeconds/MAX_SECS)*100,100);
+    var fill=gid('timer-fill');
+    fill.style.width=pct+'%';
+    if(timerSeconds>MAX_SECS*0.8) fill.className='timer-fill warn';
+    var m=Math.floor(timerSeconds/60),s=timerSeconds%60;
+    gid('timer-elapsed').textContent=m+':'+(s<10?'0':'')+s;
+    if(!int1Done&&!intervening&&timerSeconds>=INT1_SECS) hacerIntervencion(1);
+    if(!int2Done&&!intervening&&int1Done&&timerSeconds>=INT2_SECS) hacerIntervencion(2);
+    if(!sinDone&&!intervening&&int2Done&&timerSeconds>=SIN_SECS) pedirSintesis();
+    if(timerSeconds>=MAX_SECS) pararMic();
+  },1000);
+}
+function detenerTimer(){ clearInterval(timerInterval); }
+
+function getUltimas(){
+  var words=voiceText.trim().split(/\s+/);
+  return words.slice(-10).join(' ').replace(/[.,!?;:]/g,'').trim() || 'lo que comentaste';
+}
+function buildPregunta(templates){
+  return templates[Math.floor(Math.random()*templates.length)].replace('[ULTIMO]',getUltimas());
+}
+
+// ═══════════════════════════════════════════════════
+// FLUJO
+// ═══════════════════════════════════════════════════
+function iniciarSesion(){
+  showScreen('scr-sesion'); setFase(0);
+  hablar(MSG_INICIO, function(){
+    setEstado('Presioná para comenzar a hablar','');
+    gid('mic-btn').className='mic-btn'; gid('mic-btn').textContent='🎙';
+  });
+}
+
+function toggleMic(){ if(isListening) pararMic(); else iniciarMicPrincipal(); }
+
+function iniciarMicPrincipal(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){setEstado('Tu navegador no soporta voz. Usá Chrome.','');return;}
+  recognition=new SR(); recognition.lang='es-AR'; recognition.continuous=true; recognition.interimResults=true;
+  recognition.onresult=function(e){
+    var final='';
+    for(var i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)final+=e.results[i][0].transcript+' ';}
+    voiceText+=final;
+  };
+  recognition.onerror=function(e){if(e.error!=='no-speech')pararMic();};
+  recognition.onend=function(){if(isListening&&!intervening)recognition.start();};
+  recognition.start();
+  isListening=true;
+  gid('mic-btn').className='mic-btn listening'; gid('mic-btn').textContent='⏹';
+  setEstado('Escuchando... hablá con normalidad','escuchando');
+  animateWave('listening');
+  if(timerSeconds===0) iniciarTimer();
+}
+
+function pararMic(){
+  if(recognition){recognition.stop();recognition=null;}
+  isListening=false; detenerTimer();
+  gid('mic-btn').className='mic-btn'; gid('mic-btn').textContent='🎙';
+  animateWave('idle');
+  if(voiceText.trim().split(/\s+/).length>20){
+    setEstado('Procesando análisis...',''); setFase(4);
+    gid('loading').classList.add('active'); gid('loading-lbl').textContent='Clasificando perfil';
+    setTimeout(function(){
+      gid('loading').classList.remove('active');
+      mostrarResultado(clasificar(voiceText, qaHistory.map(function(h){return h.content;}).join(' ')));
+    },2000);
+  } else {
+    setEstado('Muy poco contenido. Hablá más e intentá de nuevo.','');
+  }
+}
+
+function hacerIntervencion(num){
+  if(intervening||(num===1&&int1Done)||(num===2&&int2Done)) return;
+  intervening=true;
+  if(recognition){recognition.stop();recognition=null;}
+  isListening=false; detenerTimer(); animateWave('idle'); setFase(num);
+  var pregunta=buildPregunta(num===1?TEMPLATES_INT1:TEMPLATES_INT2);
+  hablar(pregunta,function(){
+    qaHistory.push({role:'agente',content:pregunta});
+    setEstado('Escuchando tu respuesta...','esperando');
+    gid('mic-btn').className='mic-btn listening'; gid('mic-btn').textContent='⏹';
+    animateWave('listening');
+    escucharRespuesta(function(resp){
+      qaHistory.push({role:'evaluado',content:resp});
+      if(num===1) int1Done=true;
+      if(num===2) int2Done=true;
+      intervening=false;
+      hablar(MSG_GRACIAS,function(){
+        setEstado('Escuchando... continuá hablando','escuchando');
+        gid('mic-btn').className='mic-btn listening'; gid('mic-btn').textContent='⏹';
+        animateWave('listening');
+        iniciarMicPrincipal();
+      });
+    });
+  });
+}
+
+function pedirSintesis(){
+  if(sinDone||intervening) return;
+  sinDone=true; intervening=true;
+  if(recognition){recognition.stop();recognition=null;}
+  isListening=false; detenerTimer(); animateWave('idle'); setFase(3);
+  hablar(MSG_SINTESIS,function(){
+    qaHistory.push({role:'agente',content:MSG_SINTESIS});
+    setEstado('Escuchando tu síntesis...','esperando');
+    gid('mic-btn').className='mic-btn listening'; gid('mic-btn').textContent='⏹';
+    animateWave('listening');
+    escucharRespuesta(function(resp){
+      qaHistory.push({role:'sintesis',content:resp});
+      intervening=false;
+      hablar(MSG_PROCESANDO,function(){
+        setEstado('Clasificando...',''); setFase(4); detenerTimer();
+        gid('loading').classList.add('active'); gid('loading-lbl').textContent='Clasificando perfil';
+        setTimeout(function(){
+          gid('loading').classList.remove('active');
+          mostrarResultado(clasificar(voiceText, qaHistory.map(function(h){return h.content;}).join(' ')));
+        },2000);
+      });
+    });
+  });
+}
+
+function escucharRespuesta(cb){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){cb('sin respuesta');return;}
+  var recR=new SR(); recR.lang='es-AR'; recR.continuous=true; recR.interimResults=false;
+  var resp='',silTO;
+  recR.onresult=function(e){
+    for(var i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)resp+=e.results[i][0].transcript+' ';}
+    clearTimeout(silTO); silTO=setTimeout(function(){recR.stop();},2500);
+  };
+  recR.onend=function(){
+    animateWave('idle'); gid('mic-btn').className='mic-btn'; gid('mic-btn').textContent='🎙';
+    if(resp.trim().length>3){cb(resp.trim());}
+    else{setEstado('No escuché la respuesta. Hablá de nuevo...','esperando');setTimeout(function(){escucharRespuesta(cb);},1200);}
+  };
+  recR.onerror=function(){recR.stop();};
+  recR.start();
+}
+
+// ═══════════════════════════════════════════════════
+// MOSTRAR RESULTADO
+// ═══════════════════════════════════════════════════
+function mostrarResultado(r){
+  showScreen('scr-resultado');
+  var n=r.estrato, eb='e'+n+'b', el='e'+n+'l';
+  var subLabel={bajo:'Subestrato bajo',medio:'Subestrato medio',alto:'Subestrato alto'}[r.subestrato];
+
+  gid('r-top').innerHTML=
+    '<div class="est-num e'+n+'c">E'+n+'</div>'+
+    '<div>'+
+      '<div class="est-name">'+NOMBRES[n]+'</div>'+
+      '<div class="est-sub">'+subLabel+'</div>'+
+      '<div class="est-sum">'+SUMMARIES[n]+'</div>'+
+      '<div class="conf-row">'+
+        '<div class="conf-lbl">Confianza</div>'+
+        '<div class="conf-track"><div class="conf-fill '+eb+'" style="width:'+r.confianza+'%;"></div></div>'+
+        '<div class="conf-pct">'+r.confianza+'%</div>'+
+      '</div>'+
+    '</div>';
+
+  var body='';
+
+  // SCORES POR ESTRATO
+  var maxScore=Math.max(r.scores.E1.score,r.scores.E2.score,r.scores.E3.score,r.scores.E4.score,1);
+  body+='<div class="r-block"><div class="r-title">Puntaje por estrato</div>';
+  [1,2,3,4].forEach(function(i){
+    var s=r.scores['E'+i].score, pct=Math.round((s/maxScore)*100), isW=i===n;
+    body+='<div class="score-row">'+
+      '<div class="score-label'+(isW?' winner':'')+'">E'+i+' — '+NOMBRES[i].split(' ')[0]+'</div>'+
+      '<div class="score-bar-bg"><div class="score-bar-fill e'+i+'b" style="width:'+pct+'%;"></div></div>'+
+      '<div class="score-val">'+s+'</div>'+
+    '</div>';
+  });
+  body+='</div>';
+
+  // SEÑALES DETECTADAS
+  var allSignals=r.scores['E'+n].signals||[];
+  if(allSignals.length){
+    body+='<div class="r-block"><div class="r-title">Patrones estructurales detectados</div><div class="signals-grid">';
+    allSignals.forEach(function(s){
+      if(SEÑALES_LABELS[s]){
+        body+='<div class="signal-item positive e'+n+'l" style="border-color:'+COLORES[n]+';">'+
+          '<div class="signal-label" style="color:'+COLORES[n]+';">Detectado</div>'+
+          SEÑALES_LABELS[s]+
+        '</div>';
+      }
+    });
+    body+='</div></div>';
+  }
+
+  // ALERTAS
+  body+='<div class="r-block"><div class="r-title">Puntos de atención</div><div class="alt-list">';
+  ALERTAS[n].forEach(function(a){body+='<div class="alt-item"><div class="alt-dot"></div><div>'+a+'</div></div>';});
+  body+='</div></div>';
+
+  gid('r-body').innerHTML=body;
+}
+
+// ═══════════════════════════════════════════════════
+// REINICIAR
+// ═══════════════════════════════════════════════════
+function reiniciar(){
+  window.speechSynthesis.cancel();
+  if(recognition){recognition.stop();recognition=null;}
+  clearInterval(waveInterval); detenerTimer();
+  voiceText=''; qaHistory=[];
+  isListening=false; intervening=false;
+  timerSeconds=0; int1Done=false; int2Done=false; sinDone=false;
+  gid('mic-btn').className='mic-btn'; gid('mic-btn').textContent='🎙';
+  gid('timer-fill').style.width='0%'; gid('timer-fill').className='timer-fill';
+  gid('timer-elapsed').textContent='0:00';
+  gid('timer-wrap').classList.remove('active');
+  gid('loading').classList.remove('active');
+  setEstado('Presioná para comenzar a hablar','');
+  setFase(-1); animateWave('idle');
+  temaActual=TEMAS[Math.floor(Math.random()*TEMAS.length)];
+  gid('tema-icon').textContent=temaActual.icon;
+  gid('tema-display').textContent=temaActual.texto;
+  gid('tema-pill-txt').textContent=temaActual.texto;
+  showScreen('scr-intro');
+}
+
+// INIT
+function init(){
+  buildWave();
+  temaActual=TEMAS[Math.floor(Math.random()*TEMAS.length)];
+  gid('tema-icon').textContent=temaActual.icon;
+  gid('tema-display').textContent=temaActual.texto;
+  gid('tema-pill-txt').textContent=temaActual.texto;
+  if(window.speechSynthesis){
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged=function(){window.speechSynthesis.getVoices();};
+  }
+}
+init();
+</script>
+</body>
+</html>
